@@ -6,6 +6,7 @@ cómo comunicarse con Moodle - el resto de la app no necesita saberlo.
 import os
 import httpx
 from dotenv import load_dotenv
+from app.retry_utils import con_reintentos
 
 load_dotenv()
 
@@ -18,6 +19,7 @@ async def llamar_moodle(wsfunction: str, params: dict = None):
     """
     Función genérica que llama a cualquier función de la API de Moodle.
     Todas las demás funciones de este archivo usan esta por debajo.
+    Incluye reintentos automáticos ante fallos temporales de red.
     """
     if params is None:
         params = {}
@@ -29,10 +31,13 @@ async def llamar_moodle(wsfunction: str, params: dict = None):
         **params,
     }
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(ENDPOINT, data=query)
-        response.raise_for_status()
-        data = response.json()
+    async def _hacer_peticion():
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(ENDPOINT, data=query)
+            response.raise_for_status()
+            return response.json()
+
+    data = await con_reintentos(_hacer_peticion, intentos=3, espera_segundos=2)
 
     # Moodle devuelve errores como un diccionario con "exception",
     # incluso con status HTTP 200, así que hay que revisarlo a mano.
@@ -105,20 +110,25 @@ async def subir_archivo(ruta_archivo: str, nombre_archivo: str) -> dict:
 
     Usamos draftfile.php (no pluginfile.php) porque el archivo vive
     en el área de borrador del usuario, no en el área final del curso.
+
+    Incluye reintentos automáticos ante fallos temporales de red.
     """
     url_upload = f"{MOODLE_URL}/webservice/upload.php"
 
     with open(ruta_archivo, "rb") as f:
         contenido = f.read()
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        response = await client.post(
-            url_upload,
-            params={"token": MOODLE_TOKEN},
-            files={"file_1": (nombre_archivo, contenido)},
-        )
-        response.raise_for_status()
-        resultado = response.json()
+    async def _hacer_subida():
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                url_upload,
+                params={"token": MOODLE_TOKEN},
+                files={"file_1": (nombre_archivo, contenido)},
+            )
+            response.raise_for_status()
+            return response.json()
+
+    resultado = await con_reintentos(_hacer_subida, intentos=3, espera_segundos=2)
 
     if isinstance(resultado, dict) and "error" in resultado:
         raise Exception(f"Error al subir archivo: {resultado.get('error')}")

@@ -10,6 +10,7 @@ import json
 import re
 from groq import Groq
 from dotenv import load_dotenv
+from app.retry_utils import con_reintentos
 
 load_dotenv()
 
@@ -117,14 +118,18 @@ async def generar_estructura_curso(instruccion: str) -> dict:
     """
     Llama a la IA para generar la estructura de un curso.
     Devuelve un diccionario con: nombre_curso, resumen_curso, modulos (lista).
+    Incluye reintentos automáticos ante fallos temporales de la API.
     """
     prompt = PROMPT_ESTRUCTURA.format(instruccion=instruccion)
 
-    respuesta = cliente.chat.completions.create(
-        model=MODELO,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-    )
+    async def _llamar_groq():
+        return cliente.chat.completions.create(
+            model=MODELO,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+        )
+
+    respuesta = await con_reintentos(_llamar_groq, intentos=3, espera_segundos=2)
 
     texto_limpio = _limpiar_respuesta_json(respuesta.choices[0].message.content)
 
@@ -144,6 +149,7 @@ async def generar_texto_modulo(nombre_curso: str, titulo_modulo: str, descripcio
     Genera el contenido explicativo completo (varios párrafos) de un módulo.
     Este es el texto que luego se convierte en PDF y se usa como base
     para el guion del podcast y el chat de dudas.
+    Incluye reintentos automáticos ante fallos temporales de la API.
     """
     prompt = PROMPT_TEXTO_MODULO.format(
         nombre_curso=nombre_curso,
@@ -151,11 +157,14 @@ async def generar_texto_modulo(nombre_curso: str, titulo_modulo: str, descripcio
         descripcion_modulo=descripcion_modulo,
     )
 
-    respuesta = cliente.chat.completions.create(
-        model=MODELO,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-    )
+    async def _llamar_groq():
+        return cliente.chat.completions.create(
+            model=MODELO,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+        )
+
+    respuesta = await con_reintentos(_llamar_groq, intentos=3, espera_segundos=2)
 
     return respuesta.choices[0].message.content.strip()
 
@@ -163,16 +172,20 @@ async def generar_texto_modulo(nombre_curso: str, titulo_modulo: str, descripcio
 async def generar_guion_podcast(titulo_modulo: str, texto_modulo: str) -> str:
     """
     Genera el guion de un podcast corto que resume el módulo.
+    Incluye reintentos automáticos ante fallos temporales de la API.
     """
     prompt = PROMPT_GUION_PODCAST.format(
         titulo_modulo=titulo_modulo, texto_modulo=texto_modulo
     )
 
-    respuesta = cliente.chat.completions.create(
-        model=MODELO,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.8,
-    )
+    async def _llamar_groq():
+        return cliente.chat.completions.create(
+            model=MODELO,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.8,
+        )
+
+    respuesta = await con_reintentos(_llamar_groq, intentos=3, espera_segundos=2)
 
     return respuesta.choices[0].message.content.strip()
 
@@ -182,6 +195,7 @@ async def responder_pregunta_curso(nombre_curso: str, resumen_curso: str, modulo
     Responde una pregunta sobre el curso, usando como contexto el texto
     real de todos los módulos generados (RAG simple: todo el contenido
     cabe en el contexto, no hace falta un vector store).
+    Incluye reintentos automáticos ante fallos temporales de la API.
     """
     contenido_modulos = "\n\n".join(
         f"--- {m['titulo']} ---\n{m['texto']}" for m in modulos
@@ -194,10 +208,13 @@ async def responder_pregunta_curso(nombre_curso: str, resumen_curso: str, modulo
         pregunta=pregunta,
     )
 
-    respuesta = cliente.chat.completions.create(
-        model=MODELO,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.5,
-    )
+    async def _llamar_groq():
+        return cliente.chat.completions.create(
+            model=MODELO,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5,
+        )
+
+    respuesta = await con_reintentos(_llamar_groq, intentos=3, espera_segundos=2)
 
     return respuesta.choices[0].message.content.strip()
