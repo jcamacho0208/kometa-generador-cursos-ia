@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Kometa - Generador de cursos con IA</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; background: #f7f7f9; }
+  h1 { color: #2b2b6b; }
+  textarea, input[type=text] { width: 100%; padding: 10px; font-size: 15px; box-sizing: border-box; }
+  button { background: #2b2b6b; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; margin-top: 10px; }
+  button:disabled { background: #999; cursor: not-allowed; }
+  .card { background: white; padding: 20px; border-radius: 10px; margin-top: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+  .modulo { border-top: 1px solid #eee; padding-top: 12px; margin-top: 12px; }
+  .cargando { color: #777; font-style: italic; }
+  .respuesta-chat { background: #eef; padding: 12px; border-radius: 8px; margin-top: 10px; }
+  a.link-curso { display:inline-block; margin-top:10px; background:#2ecc71; color:white; padding:10px 16px; border-radius:6px; text-decoration:none; }
+</style>
+</head>
+<body>
+
+<h1>📚 Kometa - Generador de cursos con IA</h1>
+
+<div class="card">
+  <h3>1. Describe el curso que quieres crear</h3>
+  <textarea id="instruccion" rows="3" placeholder='Ej: crea un curso de Excel intermedio con 4 módulos'></textarea>
+  <button id="btnPreview" onclick="generarPreview()">Generar vista previa</button>
+  <div id="cargandoPreview" class="cargando" style="display:none;">Generando estructura y contenido con IA, esto puede tardar 30-60 segundos...</div>
+</div>
+
+<div id="preview" style="display:none;" class="card">
+  <h3 id="nombreCurso"></h3>
+  <p id="resumenCurso"></p>
+  <div id="listaModulos"></div>
+  <button id="btnConfirmar" onclick="confirmarPublicacion()">✅ Confirmar y publicar en Moodle</button>
+  <div id="cargandoConfirmar" class="cargando" style="display:none;">Publicando en Moodle: generando PDF, imagen y audio de cada módulo. Esto puede tardar varios minutos...</div>
+</div>
+
+<div id="resultadoPublicacion" style="display:none;" class="card">
+  <h3>🎉 ¡Curso publicado!</h3>
+  <a id="linkCurso" class="link-curso" href="#" target="_blank">Abrir curso en Moodle</a>
+</div>
+
+<div id="seccionChat" style="display:none;" class="card">
+  <h3>💬 Chat de dudas sobre el curso</h3>
+  <input type="text" id="pregunta" placeholder="Ej: ¿qué se ve en el módulo 2?">
+  <button onclick="preguntar()">Preguntar</button>
+  <div id="respuestaChat"></div>
+</div>
+
+<script>
+let cursoIdActual = null;
+
+async function generarPreview() {
+  const instruccion = document.getElementById('instruccion').value.trim();
+  if (!instruccion) { alert('Escribe una instrucción primero.'); return; }
+
+  document.getElementById('btnPreview').disabled = true;
+  document.getElementById('cargandoPreview').style.display = 'block';
+  document.getElementById('preview').style.display = 'none';
+  document.getElementById('resultadoPublicacion').style.display = 'none';
+  document.getElementById('seccionChat').style.display = 'none';
+
+  try {
+    const res = await fetch('/preview', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({instruccion})
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Error generando preview');
+
+    cursoIdActual = data.curso_id;
+    document.getElementById('nombreCurso').innerText = data.nombre_curso;
+    document.getElementById('resumenCurso').innerText = data.resumen_curso;
+
+    const lista = document.getElementById('listaModulos');
+    lista.innerHTML = '';
+    data.modulos.forEach((m, i) => {
+      const div = document.createElement('div');
+      div.className = 'modulo';
+      div.innerHTML = `<strong>${m.titulo}</strong><p>${m.descripcion}</p>`;
+      lista.appendChild(div);
+    });
+
+    document.getElementById('preview').style.display = 'block';
+  } catch (err) {
+    alert('Error: ' + err.message);
+  } finally {
+    document.getElementById('btnPreview').disabled = false;
+    document.getElementById('cargandoPreview').style.display = 'none';
+  }
+}
+
+async function confirmarPublicacion() {
+  if (!cursoIdActual) return;
+
+  document.getElementById('btnConfirmar').disabled = true;
+  document.getElementById('cargandoConfirmar').style.display = 'block';
+
+  try {
+    const res = await fetch('/confirmar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({curso_id: cursoIdActual})
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Error publicando el curso');
+
+    document.getElementById('linkCurso').href = data.url_curso;
+    document.getElementById('resultadoPublicacion').style.display = 'block';
+    document.getElementById('seccionChat').style.display = 'block';
+  } catch (err) {
+    alert('Error: ' + err.message);
+  } finally {
+    document.getElementById('btnConfirmar').disabled = false;
+    document.getElementById('cargandoConfirmar').style.display = 'none';
+  }
+}
+
+async function preguntar() {
+  const pregunta = document.getElementById('pregunta').value.trim();
+  if (!pregunta || !cursoIdActual) return;
+
+  const div = document.getElementById('respuestaChat');
+  div.innerHTML = '<p class="cargando">Pensando...</p>';
+
+  try {
+    const res = await fetch('/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({curso_id: cursoIdActual, pregunta})
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Error en el chat');
+
+    div.innerHTML = `<div class="respuesta-chat">${data.respuesta}</div>`;
+  } catch (err) {
+    div.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
+  }
+}
+</script>
+
+</body>
+</html>
