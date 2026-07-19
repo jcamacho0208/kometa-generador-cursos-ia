@@ -1,11 +1,12 @@
 """
 Punto de entrada de la aplicación FastAPI.
 """
+import os
 import uuid
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from app import moodle_client, ia_client, pdf_generator, image_generator, audio_generator, estado
+from app import moodle_client, ia_client, pdf_generator, image_generator, audio_generator, estado, interactive_generator
 
 app = FastAPI(title="Kometa - Generador de cursos con IA")
 
@@ -180,8 +181,9 @@ async def confirmar_curso(body: ConfirmarRequest):
     1. Recupera el curso guardado en memoria por su curso_id.
     2. Crea el curso real en Moodle.
     3. Crea una sección por cada módulo.
-    4. Para cada módulo: genera PDF, imagen y audio (guion), los sube
-       a Moodle, y actualiza la sección con el texto + enlaces/imagen.
+    4. Para cada módulo: genera PDF, imagen, audio (guion) y un quiz
+       interactivo, los sube a Moodle, y actualiza la sección con el
+       texto + enlaces/imagen/quiz.
     """
     estructura = estado.obtener_curso_pendiente(body.curso_id)
     if estructura is None:
@@ -224,6 +226,12 @@ async def confirmar_curso(body: ConfirmarRequest):
             ruta_audio = audio_generator.generar_audio_podcast(guion, nombre_audio)
             info_audio = await moodle_client.subir_archivo(ruta_audio, nombre_audio)
 
+            # Quiz interactivo (extra opcional)
+            quiz = await ia_client.generar_quiz_interactivo(modulo["titulo"], texto)
+            nombre_quiz = f"modulo_{sectionnum}_quiz.html"
+            ruta_quiz = interactive_generator.generar_html_quiz(modulo["titulo"], quiz, nombre_quiz)
+            info_quiz = await moodle_client.subir_archivo(ruta_quiz, nombre_quiz)
+
             # Armar el HTML de la sección con todo el contenido
             texto_html = texto.replace("\n\n", "</p><p>")
             resumen_html = f"""
@@ -231,6 +239,7 @@ async def confirmar_curso(body: ConfirmarRequest):
             <p><img src="{info_imagen['url']}" alt="Ilustración del módulo" style="max-width:100%;"></p>
             <p><a href="{info_pdf['url']}" target="_blank">📄 Descargar PDF del módulo</a></p>
             <p><a href="{info_audio['url']}" target="_blank">🎧 Escuchar podcast del módulo</a></p>
+            <p><a href="{info_quiz['url']}" target="_blank">🎮 Abrir quiz interactivo del módulo</a></p>
             """
 
             await moodle_client.actualizar_seccion(course_id, sectionnum, modulo["titulo"], resumen_html)
@@ -266,8 +275,6 @@ async def chat_curso(body: ChatRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-import os
 
 RUTA_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RUTA_FRONTEND = os.path.join(RUTA_BASE, "static", "index.html")

@@ -2,46 +2,173 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Kometa - Generador de cursos con IA</title>
+<title>Kometa · Generador de cursos con IA</title>
 <style>
-  body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; background: #f7f7f9; }
-  h1 { color: #2b2b6b; }
-  textarea, input[type=text] { width: 100%; padding: 10px; font-size: 15px; box-sizing: border-box; }
-  button { background: #2b2b6b; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; margin-top: 10px; }
-  button:disabled { background: #999; cursor: not-allowed; }
-  .card { background: white; padding: 20px; border-radius: 10px; margin-top: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
-  .modulo { border-top: 1px solid #eee; padding-top: 12px; margin-top: 12px; }
-  .cargando { color: #777; font-style: italic; }
-  .respuesta-chat { background: #eef; padding: 12px; border-radius: 8px; margin-top: 10px; }
-  a.link-curso { display:inline-block; margin-top:10px; background:#2ecc71; color:white; padding:10px 16px; border-radius:6px; text-decoration:none; }
+  :root {
+    --azul: #1a1a4e;
+    --azul-claro: #3d3d8f;
+    --verde: #1a9c6d;
+    --fondo: #f4f5f9;
+    --texto: #2c2c3a;
+    --borde: #e2e2ec;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', -apple-system, Arial, sans-serif;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 40px 24px;
+    background: var(--fondo);
+    color: var(--texto);
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .header .icono {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, var(--azul), var(--azul-claro));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  h1 { font-size: 22px; margin: 0; color: var(--azul); }
+  .subtitulo { color: #6b6b7d; font-size: 14px; margin: 4px 0 28px 0; }
+
+  .card {
+    background: white;
+    padding: 24px;
+    border-radius: 14px;
+    margin-bottom: 18px;
+    border: 1px solid var(--borde);
+  }
+  .card h3 {
+    margin-top: 0;
+    font-size: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #8a8a9a;
+    font-weight: 600;
+  }
+  textarea, input[type=text] {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 15px;
+    border: 1px solid var(--borde);
+    border-radius: 8px;
+    font-family: inherit;
+    resize: vertical;
+  }
+  textarea:focus, input[type=text]:focus {
+    outline: none;
+    border-color: var(--azul-claro);
+  }
+  button {
+    background: var(--azul);
+    color: white;
+    border: none;
+    padding: 11px 22px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 14px;
+    font-size: 14px;
+    font-weight: 600;
+    transition: background 0.15s;
+  }
+  button:hover:not(:disabled) { background: var(--azul-claro); }
+  button:disabled { background: #c4c4d0; cursor: not-allowed; }
+  button.secundario { background: var(--verde); }
+  button.secundario:hover:not(:disabled) { background: #22b880; }
+
+  .modulo {
+    border-top: 1px solid var(--borde);
+    padding-top: 14px;
+    margin-top: 14px;
+  }
+  .modulo:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+  .modulo strong { color: var(--azul); font-size: 15px; }
+  .modulo p { font-size: 14px; color: #52526b; margin: 6px 0 0 0; line-height: 1.5; }
+
+  .cargando {
+    color: #7a7a90;
+    font-size: 13px;
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .cargando::before {
+    content: '';
+    width: 14px; height: 14px;
+    border: 2px solid var(--borde);
+    border-top-color: var(--azul-claro);
+    border-radius: 50%;
+    animation: girar 0.8s linear infinite;
+  }
+  @keyframes girar { to { transform: rotate(360deg); } }
+
+  .exito {
+    background: #e9f9f2;
+    border: 1px solid #b7ecd6;
+  }
+  .exito h3 { color: var(--verde); }
+  a.link-curso {
+    display: inline-block;
+    margin-top: 6px;
+    background: var(--verde);
+    color: white;
+    padding: 11px 20px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .respuesta-chat {
+    background: #f0f1fa;
+    padding: 14px 16px;
+    border-radius: 10px;
+    margin-top: 12px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
 </style>
 </head>
 <body>
 
-<h1>📚 Kometa - Generador de cursos con IA</h1>
+<div class="header">
+  <div class="icono">📚</div>
+  <div>
+    <h1>Kometa</h1>
+  </div>
+</div>
+<p class="subtitulo">Generador de cursos con IA para Moodle</p>
 
 <div class="card">
-  <h3>1. Describe el curso que quieres crear</h3>
+  <h3>Paso 1 · Describe tu curso</h3>
   <textarea id="instruccion" rows="3" placeholder='Ej: crea un curso de Excel intermedio con 4 módulos'></textarea>
   <button id="btnPreview" onclick="generarPreview()">Generar vista previa</button>
-  <div id="cargandoPreview" class="cargando" style="display:none;">Generando estructura y contenido con IA, esto puede tardar 30-60 segundos...</div>
+  <div id="cargandoPreview" class="cargando" style="display:none;">Generando estructura y contenido con IA...</div>
 </div>
 
 <div id="preview" style="display:none;" class="card">
-  <h3 id="nombreCurso"></h3>
-  <p id="resumenCurso"></p>
+  <h3>Vista previa</h3>
+  <div style="font-size:17px; font-weight:600; color:var(--azul);" id="nombreCurso"></div>
+  <p style="color:#52526b; font-size:14px;" id="resumenCurso"></p>
   <div id="listaModulos"></div>
-  <button id="btnConfirmar" onclick="confirmarPublicacion()">✅ Confirmar y publicar en Moodle</button>
-  <div id="cargandoConfirmar" class="cargando" style="display:none;">Publicando en Moodle: generando PDF, imagen y audio de cada módulo. Esto puede tardar varios minutos...</div>
+  <button class="secundario" id="btnConfirmar" onclick="confirmarPublicacion()">Confirmar y publicar en Moodle</button>
+  <div id="cargandoConfirmar" class="cargando" style="display:none;">Generando PDF, imagen, podcast y quiz de cada módulo. Puede tardar varios minutos...</div>
 </div>
 
-<div id="resultadoPublicacion" style="display:none;" class="card">
-  <h3>🎉 ¡Curso publicado!</h3>
-  <a id="linkCurso" class="link-curso" href="#" target="_blank">Abrir curso en Moodle</a>
+<div id="resultadoPublicacion" style="display:none;" class="card exito">
+  <h3>Curso publicado</h3>
+  <a id="linkCurso" class="link-curso" href="#" target="_blank">Abrir curso en Moodle →</a>
 </div>
 
 <div id="seccionChat" style="display:none;" class="card">
-  <h3>💬 Chat de dudas sobre el curso</h3>
+  <h3>Chat de dudas</h3>
   <input type="text" id="pregunta" placeholder="Ej: ¿qué se ve en el módulo 2?">
   <button onclick="preguntar()">Preguntar</button>
   <div id="respuestaChat"></div>
@@ -55,7 +182,7 @@ async function generarPreview() {
   if (!instruccion) { alert('Escribe una instrucción primero.'); return; }
 
   document.getElementById('btnPreview').disabled = true;
-  document.getElementById('cargandoPreview').style.display = 'block';
+  document.getElementById('cargandoPreview').style.display = 'flex';
   document.getElementById('preview').style.display = 'none';
   document.getElementById('resultadoPublicacion').style.display = 'none';
   document.getElementById('seccionChat').style.display = 'none';
@@ -75,7 +202,7 @@ async function generarPreview() {
 
     const lista = document.getElementById('listaModulos');
     lista.innerHTML = '';
-    data.modulos.forEach((m, i) => {
+    data.modulos.forEach((m) => {
       const div = document.createElement('div');
       div.className = 'modulo';
       div.innerHTML = `<strong>${m.titulo}</strong><p>${m.descripcion}</p>`;
@@ -95,7 +222,7 @@ async function confirmarPublicacion() {
   if (!cursoIdActual) return;
 
   document.getElementById('btnConfirmar').disabled = true;
-  document.getElementById('cargandoConfirmar').style.display = 'block';
+  document.getElementById('cargandoConfirmar').style.display = 'flex';
 
   try {
     const res = await fetch('/confirmar', {
@@ -122,7 +249,7 @@ async function preguntar() {
   if (!pregunta || !cursoIdActual) return;
 
   const div = document.getElementById('respuestaChat');
-  div.innerHTML = '<p class="cargando">Pensando...</p>';
+  div.innerHTML = '<p class="cargando" style="display:flex;">Pensando...</p>';
 
   try {
     const res = await fetch('/chat', {
@@ -135,7 +262,7 @@ async function preguntar() {
 
     div.innerHTML = `<div class="respuesta-chat">${data.respuesta}</div>`;
   } catch (err) {
-    div.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
+    div.innerHTML = `<p style="color:#c0392b;">Error: ${err.message}</p>`;
   }
 }
 </script>

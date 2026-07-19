@@ -105,6 +105,37 @@ Instrucciones:
 """
 
 
+PROMPT_QUIZ = """Eres un diseñador instruccional. A partir del contenido de un módulo,
+genera un mini-quiz de 3 preguntas de opción múltiple para reforzar el aprendizaje.
+
+Módulo: "{titulo_modulo}"
+Contenido del módulo:
+{texto_modulo}
+
+Reglas:
+- Exactamente 3 preguntas.
+- Cada pregunta debe tener exactamente 4 opciones.
+- Solo una opción es correcta.
+- Las preguntas deben poder responderse con el contenido de arriba.
+- Responde en español.
+
+Responde ÚNICAMENTE con un JSON válido, sin texto adicional, sin marcadores de
+código, con exactamente esta forma:
+
+{{
+  "preguntas": [
+    {{
+      "pregunta": "string",
+      "opciones": ["string", "string", "string", "string"],
+      "respuesta_correcta": 0
+    }}
+  ]
+}}
+
+"respuesta_correcta" es el índice (0 a 3) de la opción correcta en la lista "opciones".
+"""
+
+
 def _limpiar_respuesta_json(texto: str) -> str:
     """Limpia posibles marcadores de código que el modelo agregue por error."""
     texto = texto.strip()
@@ -218,3 +249,33 @@ async def responder_pregunta_curso(nombre_curso: str, resumen_curso: str, modulo
     respuesta = await con_reintentos(_llamar_groq, intentos=3, espera_segundos=2)
 
     return respuesta.choices[0].message.content.strip()
+
+
+async def generar_quiz_interactivo(titulo_modulo: str, texto_modulo: str) -> dict:
+    """
+    Genera un mini-quiz de 3 preguntas de opción múltiple sobre un módulo,
+    usado para el contenido interactivo (extra opcional del enunciado).
+    Incluye reintentos automáticos ante fallos temporales de la API.
+    """
+    prompt = PROMPT_QUIZ.format(titulo_modulo=titulo_modulo, texto_modulo=texto_modulo)
+
+    async def _llamar_groq():
+        return cliente.chat.completions.create(
+            model=MODELO,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.6,
+        )
+
+    respuesta = await con_reintentos(_llamar_groq, intentos=3, espera_segundos=2)
+
+    texto_limpio = _limpiar_respuesta_json(respuesta.choices[0].message.content)
+
+    try:
+        quiz = json.loads(texto_limpio)
+    except json.JSONDecodeError:
+        raise Exception(
+            "La IA no devolvió un JSON válido para el quiz. Respuesta: "
+            + texto_limpio[:300]
+        )
+
+    return quiz
